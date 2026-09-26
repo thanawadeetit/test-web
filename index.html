@@ -321,7 +321,7 @@
     <script>
         // ==========================================
         // 🔴 นำ Web App URL ที่ได้จาก Google Apps Script มาใส่ในนี้
-        const API_URL = "https://script.google.com/macros/s/AKfycbyTkTHSgsK05pfA7KPcd7hKd102uij7Yw6cZwETwbRRlVe-GnEcg1We0vxQq7G-8CaEEg/exec"; 
+        const API_URL = "https://script.google.com/macros/s/AKfycbw_0wqSt-bhs5NZr_2nwAgNk99IsFcP3yxo6fRQ3gkMZcerN28CTA6NlI_v5JN_SppQEA/exec"; 
         // ==========================================
 
         function toggleSidebar() {
@@ -329,12 +329,16 @@
             document.getElementById('sidebarOverlay').classList.toggle('hidden');
         }
 
-        // ฟังก์ชันสำหรับลิงก์กลับไปหน้าอื่นๆ ในระบบ Google Apps Script
+        // ==========================================
+        // อัปเดต: ฟังก์ชันลิงก์หน้า
+        // ==========================================
         function goToPage(page) {
-            if (API_URL === "ใส่_WEB_APP_URL_ที่ได้จาก_GAS_ตรงนี้") {
-                alert("กรุณาใส่ API_URL ในโค้ดก่อนใช้งาน");
+            // ถ้ากดหน้า POS บน GitHub ให้รีเฟรชหน้าตัวเองพอ ไม่ต้องกลับไป Google
+            if (page === 'POS') {
+                window.location.reload();
                 return;
             }
+            // ถ้าย้ายไปหน้าอื่นๆ ให้เด้งกลับไปที่ระบบ Google Apps Script 
             window.location.href = API_URL + "?page=" + page;
         }
 
@@ -399,7 +403,7 @@
         });
 
         // ----------------------------------------------------
-        // ระบบกล้องสแกนเนอร์บาร์โค้ด (ตัดการเช็ค iOS ออกเพื่อให้เปิดกล้องสดเสมอ)
+        // ระบบกล้องสแกนเนอร์บาร์โค้ด 
         // ----------------------------------------------------
         async function openScanner() {
             const scannerModal = document.getElementById('scannerModal');
@@ -461,7 +465,6 @@
         function onScanFailure(error) {
             // ปล่อยว่างขณะค้นหาเส้นบาร์โค้ด
         }
-        // ----------------------------------------------------
 
         function updateClock() {
             const now = new Date();
@@ -470,8 +473,6 @@
 
         // --- ระบบดึงข้อมูลและแสดงสินค้า (ใช้ Fetch API) ---
         function loadProducts() {
-            if (API_URL === "ใส่_WEB_APP_URL_ที่ได้จาก_GAS_ตรงนี้") return;
-            
             document.getElementById('productList').innerHTML = '<p class="text-gray-500 col-span-full py-4 text-center">กำลังโหลดข้อมูลสินค้าจากคลัง...</p>';
             
             fetch(`${API_URL}?action=getProducts&branch=${currentBranch}`)
