@@ -1,43 +1,736 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบจัดการสต๊อก</title>
-    <meta property="og:title" content="ระบบจัดการสต๊อก">
-    <meta property="og:description" content="ระบบจัดการสต๊อก">
-    <meta property="og:image" content="https://raw.githubusercontent.com/thanawadeetit/test-web/main/logo.png">
+    <title>จุดบริการขาย (POS)</title>
     
-    <meta property="og:type" content="website">
-    <link rel="icon" href="https://raw.githubusercontent.com/thanawadeetit/test-web/main/logo.png" type="image/png">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/thanawadeetit/test-web/main/logo.png">
-    <meta name="theme-color" content="#ffffff">
+    <!-- Google Fonts: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Boxicons (สำหรับ Icons) -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 
+    <!-- HTML5 QRCode Library สำหรับสแกนบาร์โค้ดผ่านกล้อง -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Prompt', 'sans-serif'], },
+                    colors: { sidebar: '#1E1B3A', primary: '#5B4EFA', bglight: '#F4F6F9' }
+                }
+            }
+        }
+    </script>
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            background-color: #f4f4f4;
-        }
-        iframe {
-            width: 100%;
-            height: 100vh;
-            border: none;
-            display: block;
-        }
+        body { font-family: 'Prompt', sans-serif; background-color: #F4F6F9; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        #reader button { background-color: #5B4EFA; color: white; padding: 6px 12px; border-radius: 6px; margin: 5px; cursor: pointer; }
+        #reader select { padding: 6px; border-radius: 6px; border: 1px solid #ccc; margin: 5px; }
+        #reader { width: 100%; border: none !important; }
     </style>
 </head>
-<body>
-    <!-- เพิ่ม allow="camera; microphone" เพื่อเปิดสิทธิ์การใช้กล้องใน iframe -->
-    <iframe id="app-iframe" allow="camera; microphone; autoplay; fullscreen"></iframe>
+<body class="flex h-screen overflow-hidden text-gray-800 relative">
 
+    <!-- ================= Overlay สำหรับมือถือ ================= -->
+    <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity" onclick="toggleSidebar()"></div>
+
+    <!-- ================= Sidebar ================= -->
+    <aside id="sidebar" class="fixed md:relative inset-y-0 left-0 w-64 bg-sidebar text-white flex flex-col justify-between z-50 transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out shrink-0">
+        <div>
+            <!-- Logo & Close Button (Mobile) -->
+            <div class="px-6 py-6 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-lg">
+                        <i class='bx bx-package text-2xl'></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-semibold tracking-wide">StockFlow</h1>
+                        <p class="text-[10px] text-gray-400">ระบบขายและจัดการสต๊อก</p>
+                    </div>
+                </div>
+                <!-- ปุ่มปิด Sidebar บนมือถือ -->
+                <button class="md:hidden text-gray-400 hover:text-white" onclick="toggleSidebar()">
+                    <i class='bx bx-x text-3xl'></i>
+                </button>
+            </div>
+
+            <!-- Menu -->
+            <div class="px-4 mt-4">
+                <p class="text-xs text-gray-500 mb-2 px-2">เมนูหลัก</p>
+                <nav class="space-y-1">
+                    <a href="javascript:goToPage('POS')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary text-white shadow-lg transition">
+                        <i class='bx bx-spreadsheet text-xl'></i>
+                        <span class="text-sm font-medium">จุดบริการขาย (POS)</span>
+                    </a>
+                    <a href="javascript:goToPage('dashboard')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 transition">
+                        <i class='bx bx-pie-chart-alt-2 text-xl'></i>
+                        <span class="text-sm font-medium">หน้า Dashboard</span>
+                    </a>
+                    <a href="javascript:goToPage('inventory')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 transition">
+                        <i class='bx bx-cube-alt text-xl'></i>
+                        <span class="text-sm font-medium">สต๊อกสินค้า (Inventory)</span>
+                    </a>
+                    <a href="javascript:goToPage('in-out')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 transition">
+                        <i class='bx bx-history text-xl'></i>
+                        <span class="text-sm font-medium leading-tight">หน้า ประวัติการขายและตัด<br>สต๊อกสินค้า</span>
+                    </a>
+                    <a href="javascript:goToPage('timein')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-white/10 transition">
+                        <i class='bx bx-time-five text-xl'></i>
+                        <span class="text-sm font-medium">บันทึกเข้ากะทำงาน</span>
+                    </a>
+                    
+                    <div id="adminMenu" class="hidden">
+                        <a href="javascript:goToPage('manageuser')" class="flex items-center gap-3 px-3 py-2.5 mt-4 rounded-lg border border-white/10 text-yellow-500 hover:bg-white/10 transition">
+                            <i class='bx bx-group text-xl'></i>
+                            <span class="text-sm font-medium">จัดการผู้ใช้งาน (Admin)</span>
+                        </a>
+                    </div>
+                </nav>
+            </div>
+        </div>
+
+        <!-- User Profile -->
+        <div class="p-4 border-t border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                    <i class='bx bx-user text-xl'></i>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold" id="staffNameDisplay">แอดมิน</p>
+                    <p class="text-xs text-gray-400" id="staffRoleDisplay">ADMIN</p>
+                </div>
+            </div>
+            <a href="javascript:goToPage('index')" class="text-gray-400 hover:text-white transition">
+                <i class='bx bx-log-out text-xl'></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- ================= Main Content ================= -->
+    <main class="flex-1 flex flex-col h-screen w-full relative">
+        
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="absolute inset-0 bg-white/80 z-50 hidden flex-col items-center justify-center backdrop-blur-sm">
+            <svg class="animate-spin h-12 w-12 text-primary mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <p class="text-gray-600 font-medium" id="loadingText">กำลังประมวลผล...</p>
+        </div>
+
+        <!-- Header -->
+        <header class="bg-white px-4 md:px-8 py-4 flex items-center justify-between border-b border-gray-100 shadow-sm z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <button class="md:hidden text-gray-600 hover:text-primary transition flex items-center" onclick="toggleSidebar()">
+                    <i class='bx bx-menu text-3xl'></i>
+                </button>
+                <h2 class="text-lg md:text-2xl font-semibold">จุดบริการขายสินค้า (POS)</h2>
+            </div>
+            
+            <div class="flex items-center gap-2 md:gap-4 text-sm text-gray-600">
+                <span class="hidden md:flex items-center bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-full font-medium" id="branchDisplay">
+                    <i class='bx bx-map mr-1.5'></i> คลังสินค้าหลัก
+                </span>
+                <span id="currentTime" class="font-mono bg-gray-100 px-3 py-1.5 rounded-lg"></span>
+            </div>
+        </header>
+
+        <!-- POS Layout -->
+        <div class="flex flex-col lg:flex-row flex-1 overflow-hidden">
+            
+            <!-- Left Panel (Products & Search) -->
+            <div class="flex-1 p-4 md:p-6 overflow-y-auto no-scrollbar flex flex-col bglight">
+                <!-- Search Bar & Scan Button -->
+                <div class="flex space-x-2 mb-2">
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class='bx bx-barcode text-gray-400 text-xl'></i>
+                        </div>
+                        <input type="text" id="searchInput" class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary shadow-sm" placeholder="สแกนบาร์โค้ด หรือ ระบุ SKU แล้วกด Enter">
+                    </div>
+                    <!-- ปุ่มเปิดกล้อง -->
+                    <button onclick="openScanner()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 md:px-4 rounded-lg font-medium shadow-sm transition border border-gray-300 flex items-center justify-center title='สแกนด้วยกล้อง'">
+                        <i class='bx bx-camera text-2xl'></i>
+                    </button>
+                    <!-- ปุ่มเพิ่ม -->
+                    <button onclick="searchAndAddBtn()" class="bg-primary hover:bg-indigo-700 text-white px-4 md:px-6 rounded-lg font-medium shadow-sm transition">เพิ่ม</button>
+                </div>
+                <p class="text-xs text-gray-500 mb-6 flex items-center"><i class='bx bx-info-circle mr-1 text-base'></i> ระบบจะตัดสต๊อกอัตโนมัติเมื่อทำรายการขาย</p>
+
+                <!-- Quick Select -->
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-medium text-gray-600">เลือกด่วน (สินค้าในสถานที่ปัจจุบัน)</h3>
+                    <button onclick="loadProducts()" class="text-primary hover:text-indigo-700 text-sm flex items-center"><i class='bx bx-refresh mr-1'></i>รีเฟรชสต๊อก</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4" id="productList">
+                    <!-- Product Cards will be generated here by JS -->
+                </div>
+            </div>
+
+            <!-- Right Panel (Cart) -->
+            <div class="w-full lg:w-[400px] bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col shadow-lg z-10 shrink-0 h-[50vh] lg:h-auto">
+                <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                    <h3 class="font-semibold text-lg flex items-center text-gray-700">
+                        <i class='bx bx-cart text-primary text-xl mr-2'></i> รายการขายปัจจุบัน
+                    </h3>
+                    <button onclick="clearCart()" class="text-red-500 text-sm hover:text-red-700 flex items-center transition">
+                        <i class='bx bx-trash mr-1'></i> ล้างทั้งหมด
+                    </button>
+                </div>
+
+                <!-- Cart Items Area -->
+                <div class="flex-1 overflow-y-auto p-4 no-scrollbar" id="cartItemsContainer">
+                    <div id="emptyCart" class="h-full flex flex-col items-center justify-center text-gray-400">
+                        <i class='bx bx-shopping-bag text-5xl mb-4 opacity-50'></i>
+                        <p>ตะกร้าว่างเปล่า</p>
+                        <p class="text-sm mt-1">คลิกสินค้าหรือสแกนบาร์โค้ดเพื่อเพิ่ม</p>
+                    </div>
+                    
+                    <div id="cartList" class="space-y-3 hidden">
+                        <!-- Cart Items -->
+                    </div>
+                </div>
+
+                <!-- Cart Summary & Checkout -->
+                <div class="p-4 border-t bg-gray-50 shrink-0">
+                    <div class="space-y-2 mb-4 text-sm">
+                        <div class="flex justify-between text-gray-600">
+                            <span>ยอดรวมสุทธิ</span>
+                            <span id="subtotal">฿0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-gray-600">
+                            <span>ส่วนลด</span>
+                            <div class="flex items-center w-24">
+                                <span class="mr-2">-฿</span>
+                                <input type="number" id="discountInput" class="w-full text-right border border-gray-300 rounded p-1 focus:ring-primary focus:border-primary outline-none" value="0" min="0" onchange="updateTotals()" onkeyup="updateTotals()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-dashed border-gray-300 pt-4 mb-4 flex justify-between items-end">
+                        <span class="font-bold text-gray-800">ยอดชำระสุทธิ</span>
+                        <span id="grandTotal" class="text-3xl font-bold text-primary">฿0.00</span>
+                    </div>
+
+                    <button onclick="checkout()" class="w-full bg-primary hover:bg-indigo-700 text-white py-3 rounded-lg font-medium shadow-md flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transition" id="checkoutBtn" disabled>
+                        <i class='bx bx-check-circle text-xl'></i>
+                        <span>ยืนยันการขาย & ตัดสต๊อก</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= Scanner Modal ================= -->
+    <div id="scannerModal" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-[90%] max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                <h3 class="font-bold text-gray-800 flex items-center">
+                    <i class='bx bx-camera text-xl mr-2 text-primary'></i> สแกนด้วยกล้อง
+                </h3>
+                <button onclick="closeScanner()" class="text-gray-500 hover:text-red-500 text-2xl">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto flex-1 flex flex-col gap-4">
+                <div id="reader" class="rounded-lg overflow-hidden border border-gray-200 bg-black min-h-[200px] flex items-center justify-center text-white text-sm">
+                    กำลังโหลดกล้อง...
+                </div>
+                
+                <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                    <p class="text-xs text-indigo-800 mb-3 font-medium flex items-start">
+                        <i class='bx bx-info-circle text-base mr-1 mt-0.5'></i>
+                        หากกล้องไม่แสดงผล หรือแสดงหน้าจอดำ ให้กดปุ่มด้านล่างเพื่อถ่ายรูปบาร์โค้ดแทน
+                    </p>
+                    <label class="w-full flex items-center justify-center bg-primary hover:bg-indigo-700 text-white py-3 rounded-lg font-medium cursor-pointer transition shadow-sm">
+                        <i class='bx bx-camera mr-2 text-xl'></i> ถ่ายรูป / อัปโหลดบาร์โค้ด
+                        <input type="file" id="qrInputFile" accept="image/*" capture="environment" class="hidden">
+                    </label>
+                </div>
+                
+                <button onclick="closeScanner()" class="w-full py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-medium transition mt-auto">
+                    ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= Success Modal ================= -->
+    <div id="successModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-[90%] md:w-[400px] overflow-hidden">
+            <div class="bg-green-500 p-4 border-b flex justify-between items-center text-white">
+                <h3 class="font-bold flex items-center">
+                    <i class='bx bx-check-circle text-xl mr-2'></i> ทำรายการสำเร็จ
+                </h3>
+                <button onclick="closeModal()" class="text-white/80 hover:text-white text-2xl">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="text-center mb-4">
+                    <h2 class="font-bold text-xl tracking-wider text-gray-800">STOCKFLOW POS</h2>
+                    <p class="text-sm text-gray-500" id="receiptBranch">คลังสินค้าหลัก</p>
+                    <p class="text-xs text-gray-500">ใบเสร็จรับเงิน</p>
+                </div>
+                
+                <div class="border-t border-b border-dashed border-gray-300 py-3 text-sm space-y-1 mb-4">
+                    <p><span class="text-gray-500">รหัสอ้างอิง:</span> <span id="receiptRef" class="font-mono">TXN-000000</span></p>
+                    <p><span class="text-gray-500">วันที่:</span> <span id="receiptDate">YYYY-MM-DD HH:MM</span></p>
+                    <p><span class="text-gray-500">พนักงาน:</span> <span id="receiptStaff">แอดมิน A</span></p>
+                </div>
+
+                <div id="receiptItems" class="text-sm mb-4 space-y-2">
+                    <!-- Receipt items injected here -->
+                </div>
+
+                <div class="border-t border-dashed border-gray-300 pt-3 text-sm space-y-1 mb-6">
+                    <div class="flex justify-between">
+                        <span>ยอดรวมสุทธิ:</span>
+                        <span id="receiptSubtotal">฿0.00</span>
+                    </div>
+                    <div id="receiptDiscountArea" class="flex justify-between text-red-500 hidden">
+                        <span>ส่วนลด:</span>
+                        <span id="receiptDiscount">-฿0.00</span>
+                    </div>
+                    <div class="flex justify-between font-bold text-base mt-2 text-gray-800">
+                        <span>ยอดชำระสุทธิ:</span>
+                        <span id="receiptTotal" class="text-primary">฿0.00</span>
+                    </div>
+                </div>
+                
+                <p class="text-center text-xs text-gray-500 mb-6">ขอบคุณที่ใช้บริการ!</p>
+
+                <div class="flex space-x-3">
+                    <button onclick="closeModal()" class="flex-1 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium transition">ขายสินค้าใหม่</button>
+                    <button onclick="window.print()" class="flex-1 py-2.5 bg-primary hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center justify-center transition">
+                        <i class='bx bx-printer mr-2 text-lg'></i> พิมพ์
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= JavaScript Logic ================= -->
     <script>
-        const gasUrl = "https://script.google.com/macros/s/AKfycbxyvMReFa1AJuyymGl5yni3vAsc-ADjfJVILzPMleI_-3B2zGtHlcnB3bmgJ-wlyDdQkA/exec";
-        const queryString = window.location.search;
-        document.getElementById('app-iframe').src = gasUrl + queryString;
+        // ==========================================
+        // 🔴 นำ Web App URL ที่ได้จาก Google Apps Script มาใส่ในนี้
+        const API_URL = "https://script.google.com/macros/s/AKfycbyTkTHSgsK05pfA7KPcd7hKd102uij7Yw6cZwETwbRRlVe-GnEcg1We0vxQq7G-8CaEEg/exec"; 
+        // ==========================================
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarOverlay').classList.toggle('hidden');
+        }
+
+        // ฟังก์ชันสำหรับลิงก์กลับไปหน้าอื่นๆ ในระบบ Google Apps Script
+        function goToPage(page) {
+            if (API_URL === "ใส่_WEB_APP_URL_ที่ได้จาก_GAS_ตรงนี้") {
+                alert("กรุณาใส่ API_URL ในโค้ดก่อนใช้งาน");
+                return;
+            }
+            window.location.href = API_URL + "?page=" + page;
+        }
+
+        let allProducts = [];
+        let cart = [];
+        let currentBranch = 'คลังสินค้าหลัก'; 
+        let currentUser = { name: 'ผู้ใช้งาน', role: 'staff' };
+        
+        let html5QrCode = null; 
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. โหลดข้อมูล Session ผู้ใช้
+            const sessionStr = localStorage.getItem('clinicSession');
+            if (sessionStr) {
+                const session = JSON.parse(sessionStr);
+                currentUser = session.user;
+                document.getElementById('staffNameDisplay').innerText = currentUser.name;
+                document.getElementById('staffRoleDisplay').innerText = currentUser.role.toUpperCase();
+                
+                // เช็คสิทธิ์เพื่อแสดงเมนู Admin
+                if (currentUser.role.toLowerCase() === 'admin') {
+                    document.getElementById('adminMenu').classList.remove('hidden');
+                }
+            } else {
+                goToPage('index');
+            }
+
+            // 2. ตั้งค่านาฬิกา
+            updateClock();
+            setInterval(updateClock, 1000); 
+
+            // 3. ดึงสินค้าจาก Backend ผ่าน API
+            loadProducts();
+
+            // 4. ตั้งค่า Barcode Scanner แบบพิมพ์ Enter
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if(e.key === 'Enter') {
+                    searchAndAddProduct(this.value.trim());
+                    this.value = '';
+                }
+            });
+
+            // 5. ตั้งค่าระบบถ่ายรูปสแกน
+            document.getElementById('qrInputFile').addEventListener('change', function(e) {
+                if (e.target.files.length === 0) return;
+                const imageFile = e.target.files[0];
+
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+
+                html5QrCode.scanFile(imageFile, true)
+                    .then(decodedText => {
+                        onScanSuccess(decodedText, null);
+                        this.value = ''; 
+                    })
+                    .catch(err => {
+                        alert('ไม่พบบาร์โค้ดในภาพ หรือภาพไม่ชัดเจน กรุณาลองถ่ายใหม่อีกครั้ง');
+                        this.value = ''; 
+                    });
+            });
+        });
+
+        // ----------------------------------------------------
+        // ระบบกล้องสแกนเนอร์บาร์โค้ด (ตัดการเช็ค iOS ออกเพื่อให้เปิดกล้องสดเสมอ)
+        // ----------------------------------------------------
+        async function openScanner() {
+            const scannerModal = document.getElementById('scannerModal');
+            scannerModal.classList.remove('hidden');
+            scannerModal.classList.add('flex');
+            document.getElementById('reader').innerHTML = "กำลังโหลดกล้อง...";
+
+            try {
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+
+                const config = { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 150 },
+                    aspectRatio: 1.0
+                };
+
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess, 
+                    onScanFailure
+                );
+
+            } catch (err) {
+                document.getElementById('reader').innerHTML = `
+                    <div class="text-center p-4">
+                        <i class='bx bx-error-circle text-4xl text-red-400 mb-2'></i>
+                        <p class="text-red-400 text-sm">ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์ของเบราว์เซอร์</p>
+                        <p class="text-gray-400 text-xs mt-2">คุณยังสามารถกดปุ่ม "ถ่ายรูป / อัปโหลดบาร์โค้ด" ด้านล่างแทนได้</p>
+                    </div>
+                `;
+                console.log("Live Camera Error:", err);
+            }
+        }
+
+        async function closeScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                try {
+                    await html5QrCode.stop();
+                } catch (error) {
+                    console.error("Failed to stop scanner: ", error);
+                }
+            }
+            const scannerModal = document.getElementById('scannerModal');
+            scannerModal.classList.add('hidden');
+            scannerModal.classList.remove('flex');
+            document.getElementById('qrInputFile').value = '';
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            closeScanner();
+            document.getElementById('searchInput').value = decodedText;
+            searchAndAddProduct(decodedText);
+            document.getElementById('searchInput').value = '';
+        }
+
+        function onScanFailure(error) {
+            // ปล่อยว่างขณะค้นหาเส้นบาร์โค้ด
+        }
+        // ----------------------------------------------------
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('currentTime').innerText = now.toLocaleTimeString('th-TH');
+        }
+
+        // --- ระบบดึงข้อมูลและแสดงสินค้า (ใช้ Fetch API) ---
+        function loadProducts() {
+            if (API_URL === "ใส่_WEB_APP_URL_ที่ได้จาก_GAS_ตรงนี้") return;
+            
+            document.getElementById('productList').innerHTML = '<p class="text-gray-500 col-span-full py-4 text-center">กำลังโหลดข้อมูลสินค้าจากคลัง...</p>';
+            
+            fetch(`${API_URL}?action=getProducts&branch=${currentBranch}`)
+                .then(response => response.json())
+                .then(res => {
+                    if (res.success) {
+                        allProducts = res.data;
+                        renderProducts();
+                    } else {
+                        document.getElementById('productList').innerHTML = `<p class="text-red-500 col-span-full py-4 text-center">ผิดพลาด: ${res.message}</p>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('productList').innerHTML = `<p class="text-red-500 col-span-full py-4 text-center">เชื่อมต่อฐานข้อมูลล้มเหลว</p>`;
+                    console.error('Fetch Error:', error);
+                });
+        }
+
+        function renderProducts() {
+            const container = document.getElementById('productList');
+            container.innerHTML = '';
+            
+            if(allProducts.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 col-span-full py-4 text-center">ไม่พบสินค้าในสต๊อกสาขานี้</p>';
+                return;
+            }
+
+            allProducts.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-primary hover:shadow-md transition cursor-pointer flex flex-col justify-between';
+                card.onclick = () => addToCart(product.sku);
+                
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start mb-1">
+                            <div class="text-xs text-gray-400 font-mono">${product.sku}</div>
+                            ${product.barcode ? `<i class='bx bx-barcode text-gray-300' title="${product.barcode}"></i>` : ''}
+                        </div>
+                        <div class="font-medium text-gray-800 mb-3">${product.name}</div>
+                    </div>
+                    <div class="flex justify-between items-end border-t border-gray-50 pt-2">
+                        <div class="text-lg font-bold text-primary">฿${product.price.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</div>
+                        <div class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">${product.stock} ชิ้น</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- ระบบตะกร้าสินค้า (Cart) ---
+        function searchAndAddBtn() {
+            const input = document.getElementById('searchInput');
+            searchAndAddProduct(input.value.trim());
+            input.value = '';
+        }
+
+        function searchAndAddProduct(keyword) {
+            if(!keyword) return;
+            keyword = keyword.toLowerCase();
+            
+            const product = allProducts.find(p => p.sku.toLowerCase() === keyword || (p.barcode && p.barcode.toLowerCase() === keyword));
+            if (product) {
+                addToCart(product.sku);
+            } else {
+                alert('ไม่พบสินค้า รหัส/บาร์โค้ด: ' + keyword);
+            }
+        }
+
+        function addToCart(sku) {
+            const product = allProducts.find(p => p.sku === sku);
+            if (!product) return;
+
+            const existingItem = cart.find(item => item.sku === sku);
+            
+            if (existingItem) {
+                if (existingItem.qty + 1 > product.stock) {
+                    alert(`สินค้า ${product.name} มีสต๊อกจำกัดแค่ ${product.stock} ชิ้น`);
+                    return;
+                }
+                existingItem.qty += 1;
+            } else {
+                if (product.stock < 1) {
+                    alert('สินค้าหมดสต๊อก');
+                    return;
+                }
+                cart.push({ ...product, qty: 1 });
+            }
+            renderCart();
+        }
+
+        function updateQty(sku, change) {
+            const itemIndex = cart.findIndex(item => item.sku === sku);
+            if (itemIndex > -1) {
+                const product = allProducts.find(p => p.sku === sku);
+                const newQty = cart[itemIndex].qty + change;
+                
+                if (newQty > product.stock) {
+                    alert(`สินค้ามีสต๊อกจำกัดแค่ ${product.stock} ชิ้น`);
+                    return;
+                }
+                
+                cart[itemIndex].qty = newQty;
+                if (cart[itemIndex].qty <= 0) {
+                    cart.splice(itemIndex, 1);
+                }
+                renderCart();
+            }
+        }
+
+        function clearCart() {
+            cart = [];
+            document.getElementById('discountInput').value = 0;
+            renderCart();
+        }
+
+        function renderCart() {
+            const emptyState = document.getElementById('emptyCart');
+            const cartList = document.getElementById('cartList');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            
+            if (cart.length === 0) {
+                emptyState.classList.remove('hidden');
+                cartList.classList.add('hidden');
+                checkoutBtn.disabled = true;
+            } else {
+                emptyState.classList.add('hidden');
+                cartList.classList.remove('hidden');
+                checkoutBtn.disabled = false;
+                
+                cartList.innerHTML = '';
+                cart.forEach(item => {
+                    const el = document.createElement('div');
+                    el.className = 'flex justify-between items-center p-3 bg-white border border-gray-100 rounded-lg shadow-sm';
+                    el.innerHTML = `
+                        <div class="flex-1 pr-2">
+                            <div class="font-medium text-sm text-gray-800 line-clamp-1">${item.name}</div>
+                            <div class="text-xs text-gray-400 font-mono">${item.sku}</div>
+                            <div class="text-xs text-gray-500 mt-1">฿${item.price.toFixed(2)} / ชิ้น</div>
+                        </div>
+                        <div class="flex flex-col items-end shrink-0">
+                            <div class="font-bold text-sm text-primary mb-2">฿${(item.price * item.qty).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</div>
+                            <div class="flex items-center border border-gray-200 rounded bg-gray-50 overflow-hidden">
+                                <button onclick="updateQty('${item.sku}', -1)" class="px-2 py-1 text-gray-600 hover:bg-gray-200 transition">-</button>
+                                <span class="px-2 text-sm font-medium w-8 text-center bg-white border-x border-gray-200">${item.qty}</span>
+                                <button onclick="updateQty('${item.sku}', 1)" class="px-2 py-1 text-gray-600 hover:bg-gray-200 transition">+</button>
+                            </div>
+                        </div>
+                    `;
+                    cartList.appendChild(el);
+                });
+            }
+            updateTotals();
+        }
+
+        function updateTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let discount = parseFloat(document.getElementById('discountInput').value);
+            if (isNaN(discount) || discount < 0) discount = 0;
+            
+            if (discount > subtotal) discount = subtotal;
+
+            const grandTotal = Math.max(0, subtotal - discount);
+
+            document.getElementById('subtotal').innerText = `฿${subtotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            document.getElementById('grandTotal').innerText = `฿${grandTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+        }
+
+        // --- ระบบชำระเงิน (Checkout) (ใช้ Fetch API) ---
+        function checkout() {
+            if (cart.length === 0) return;
+            
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let discount = parseFloat(document.getElementById('discountInput').value) || 0;
+            if (discount > subtotal) discount = subtotal;
+            const netTotal = subtotal - discount;
+
+            const txData = {
+                branch: currentBranch,
+                staffName: currentUser.name,
+                cart: cart,
+                subtotal: subtotal,
+                discount: discount,
+                netTotal: netTotal
+            };
+
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            document.getElementById('loadingText').innerText = 'กำลังประมวลผลและตัดสต๊อก...';
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
+
+            fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: 'checkout',
+                    payload: txData
+                })
+            })
+            .then(response => response.json())
+            .then(res => {
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+
+                if (res.success) {
+                    showReceipt(res.receipt);
+                } else {
+                    alert('เกิดข้อผิดพลาดในการทำรายการ:\n' + res.message);
+                }
+            })
+            .catch(error => {
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+                alert('เชื่อมต่อระบบล้มเหลว กรุณาลองใหม่');
+                console.error('Fetch Error:', error);
+            });
+        }
+
+        function showReceipt(receipt) {
+            document.getElementById('receiptBranch').innerText = receipt.branch;
+            document.getElementById('receiptDate').innerText = receipt.date;
+            document.getElementById('receiptRef').innerText = receipt.txId;
+            document.getElementById('receiptStaff').innerText = receipt.staff;
+            
+            const receiptItemsContainer = document.getElementById('receiptItems');
+            receiptItemsContainer.innerHTML = '';
+            
+            receipt.cart.forEach(item => {
+                const totalItemPrice = item.price * item.qty;
+                receiptItemsContainer.innerHTML += `
+                    <div class="flex justify-between">
+                        <span class="truncate pr-2">${item.qty}x ${item.name}</span>
+                        <span class="shrink-0">฿${totalItemPrice.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('receiptSubtotal').innerText = `฿${receipt.subtotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            
+            if(receipt.discount > 0) {
+                document.getElementById('receiptDiscountArea').classList.remove('hidden');
+                document.getElementById('receiptDiscount').innerText = `-฿${receipt.discount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+            } else {
+                document.getElementById('receiptDiscountArea').classList.add('hidden');
+            }
+
+            document.getElementById('receiptTotal').innerText = `฿${receipt.netTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+
+            const modal = document.getElementById('successModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('successModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            
+            clearCart(); 
+            loadProducts();
+        }
     </script>
 </body>
 </html>
