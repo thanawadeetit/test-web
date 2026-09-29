@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Barcode Scanner to Google Sheet</title>
+    
+    <!-- Tailwind CSS สำหรับจัด Layout ให้ Responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome สำหรับไอคอน -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- HTML5 QRCode สำหรับเปิดกล้องสแกน -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- SweetAlert2 สำหรับแจ้งเตือน -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #f3f4f6; }
+        #reader video { object-fit: cover; border-radius: 8px; }
+    </style>
+</head>
+<body class="text-gray-800 pb-10">
+
+    <div class="max-w-xl mx-auto px-4 pt-8">
+        <!-- Header -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold mb-1">Barcode Scanner</h1>
+            <p class="text-gray-500 text-sm">สแกนบาร์โค้ดและบันทึกลง Google Sheet</p>
+        </div>
+
+        <!-- กล่องสแกนเนอร์ -->
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+            <div id="reader-container" class="relative mb-4">
+                <div id="reader" class="min-h-[300px] flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <i class="fa-solid fa-camera text-4xl text-gray-400"></i>
+                </div>
+            </div>
+
+            <button id="btn-scan" onclick="toggleScanner()" class="w-full bg-gray-900 hover:bg-gray-800 text-white font-medium py-3 rounded-lg transition-colors">
+                <i class="fa-solid fa-camera mr-2"></i> <span id="btn-scan-text">เริ่มสแกน</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. นำ URL ของ Apps Script มาใส่ในเครื่องหมายคำพูดด้านล่างนี้ได้เลย
+        // ==========================================
+        const webAppUrl = 'https://script.google.com/macros/s/AKfycby_mlYNK3Lk53okBcSYl4BNd8ZEGje4T05aC5W10-xBYfdF5PpUplXpbmeWd07NaFMv-g/exec'; 
+
+        let html5QrCode;
+        let isScanning = false;
+        let isProcessing = false;
+        const beepSound = new Audio('https://www.soundjay.com/buttons/sounds/beep-07a.mp3');
+
+        window.onload = function() {
+            // เตรียมตัวแปรสแกนเนอร์เมื่อโหลดหน้าเว็บ
+            html5QrCode = new Html5Qrcode("reader");
+        };
+
+        // เริ่ม / หยุด สแกนเนอร์
+        function toggleScanner() {
+            if (!webAppUrl || webAppUrl === 'YOUR_WEB_APP_URL_HERE') {
+                Swal.fire('แจ้งเตือน', 'คุณยังไม่ได้ใส่ Web App URL ในโค้ดบรรทัดที่ 46', 'warning');
+                return;
+            }
+
+            if (isScanning) {
+                stopScanner();
+            } else {
+                startScanner();
+            }
+        }
+
+        function startScanner() {
+            const config = { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
+            // ใช้ facingMode: "environment" เพื่อบังคับใช้กล้องหลัง
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                onScanSuccess,
+                onScanFailure
+            ).then(() => {
+                isScanning = true;
+                document.getElementById('btn-scan-text').innerText = "หยุดสแกน";
+                document.getElementById('btn-scan').classList.replace('bg-gray-900', 'bg-red-600');
+                document.getElementById('btn-scan').classList.replace('hover:bg-gray-800', 'hover:bg-red-700');
+            }).catch(err => {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้: ' + err, 'error');
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode && isScanning) {
+                html5QrCode.stop().then(() => {
+                    isScanning = false;
+                    document.getElementById('btn-scan-text').innerText = "เริ่มสแกน";
+                    document.getElementById('btn-scan').classList.replace('bg-red-600', 'bg-gray-900');
+                    document.getElementById('btn-scan').classList.replace('hover:bg-red-700', 'hover:bg-gray-800');
+                }).catch(err => console.error(err));
+            }
+        }
+
+        function onScanFailure(error) {
+            // ไม่ต้องทำอะไร ปล่อยให้สแกนต่อไป
+        }
+
+        // เมื่อสแกนสำเร็จ
+        async function onScanSuccess(decodedText, decodedResult) {
+            if (isProcessing) return; // ป้องกันการยิงซ้ำ
+            isProcessing = true;
+            
+            // หยุดกล้องชั่วคราว
+            stopScanner();
+            beepSound.play().catch(e=>console.log(e));
+
+            Swal.fire({
+                title: 'กำลังบันทึกข้อมูล...',
+                text: 'บาร์โค้ด: ' + decodedText,
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading()
+                }
+            });
+
+            try {
+                // ส่งข้อมูลไป Google Apps Script
+                const response = await fetch(webAppUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ barcode: decodedText })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'บันทึกสำเร็จ!',
+                        text: `บาร์โค้ด: ${decodedText}`,
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                } else {
+                    throw new Error(result.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
+                }
+
+            } catch (error) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้: ' + error.message, 'error');
+            } finally {
+                isProcessing = false;
+            }
+        }
+    </script>
+</body>
+</html>
