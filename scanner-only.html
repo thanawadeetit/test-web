@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Barcode Scanner to Google Sheet</title>
+    <title>Barcode Scanner</title>
     
     <!-- Tailwind CSS สำหรับจัด Layout ให้ Responsive -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,22 +18,50 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9fafb; margin: 0; padding: 0; }
         #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #f3f4f6; }
         #reader video { object-fit: cover; border-radius: 8px; }
+        
+        /* สไตล์ปุ่มย้อนกลับ */
+        .back-button {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+            color: #4b5563;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .back-button:hover {
+            background: #f3f4f6;
+            color: #1f2937;
+        }
     </style>
 </head>
-<body class="text-gray-800 pb-10">
+<body class="text-gray-800 pb-10 relative">
 
-    <div class="max-w-xl mx-auto px-4 pt-8">
+    <!-- ปุ่มลูกศรกลับ -->
+    <a href="https://thanawadeetit.github.io/test-web/?page=POS" class="back-button" title="กลับไปหน้า POS">
+        <i class="fa-solid fa-arrow-left text-xl"></i>
+    </a>
+
+    <div class="max-w-xl mx-auto px-4 pt-16">
         <!-- Header -->
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold mb-1">Barcode Scanner</h1>
-            <p class="text-gray-500 text-sm">สแกนบาร์โค้ดและบันทึกลง Google Sheet</p>
+            <p class="text-gray-500 text-sm">สแกนบาร์โค้ดเพื่อค้นหาสินค้า</p>
         </div>
 
         <!-- กล่องสแกนเนอร์ -->
-        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative">
             <div id="reader-container" class="relative mb-4">
                 <div id="reader" class="min-h-[300px] flex items-center justify-center border-2 border-dashed border-gray-300">
                     <i class="fa-solid fa-camera text-4xl text-gray-400"></i>
@@ -48,9 +76,9 @@
 
     <script>
         // ==========================================
-        // 1. นำ URL ของ Apps Script มาใส่ในเครื่องหมายคำพูดด้านล่างนี้ได้เลย
+        // URL ของ Apps Script (ตัวเดียวกับที่เปิดเว็บหลัก)
         // ==========================================
-        const webAppUrl = 'https://script.google.com/macros/s/AKfycbyXjSasGnQSAXT9c6rl0v9YLEwNazL9wpchSkFwoQLSLuyzupU2L1ImlaoCvxS00R6ngA/exec'; 
+        const webAppUrl = 'https://script.google.com/macros/s/AKfycbzW1zgePFmYuNSC6MKzWO0e6mTcmuH80btdy--lxWNJvIFjA4aqJbVXD6jqN0_LSbNmRg/exec'; 
 
         let html5QrCode;
         let isScanning = false;
@@ -60,15 +88,11 @@
         window.onload = function() {
             // เตรียมตัวแปรสแกนเนอร์เมื่อโหลดหน้าเว็บ
             html5QrCode = new Html5Qrcode("reader");
+            // เปิดกล้องอัตโนมัติ
+            startScanner();
         };
 
-        // เริ่ม / หยุด สแกนเนอร์
         function toggleScanner() {
-            if (!webAppUrl || webAppUrl === 'YOUR_WEB_APP_URL_HERE') {
-                Swal.fire('แจ้งเตือน', 'คุณยังไม่ได้ใส่ Web App URL ในโค้ดบรรทัดที่ 46', 'warning');
-                return;
-            }
-
             if (isScanning) {
                 stopScanner();
             } else {
@@ -124,7 +148,7 @@
             beepSound.play().catch(e=>console.log(e));
 
             Swal.fire({
-                title: 'กำลังบันทึกข้อมูล...',
+                title: 'กำลังตรวจสอบข้อมูล...',
                 text: 'บาร์โค้ด: ' + decodedText,
                 allowOutsideClick: false,
                 didOpen: () => {
@@ -133,29 +157,37 @@
             });
 
             try {
-                // ส่งข้อมูลไป Google Apps Script
-                const response = await fetch(webAppUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ barcode: decodedText })
-                });
-
+                // ส่งรหัสไปเช็คที่ Google Apps Script ผ่าน URL (GET Request)
+                const checkUrl = `${webAppUrl}?action=checkBarcode&barcode=${encodeURIComponent(decodedText)}`;
+                const response = await fetch(checkUrl);
                 const result = await response.json();
 
-                if (result.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'บันทึกสำเร็จ!',
-                        text: `บาร์โค้ด: ${decodedText}`,
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
+                if (result.exists) {
+                    Swal.close();
+                    // เด้งกลับไปหน้า POS พร้อมแนบรหัสไปกับ URL (ส่ง parameter เพิ่มเติม)
+                    window.location.href = `https://thanawadeetit.github.io/test-web/?page=POS&scan=${encodeURIComponent(result.sku)}`;
                 } else {
-                    throw new Error(result.message || 'เกิดข้อผิดพลาดจากเซิร์ฟเวอร์');
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'ไม่พบสินค้า',
+                        text: `รหัส ${decodedText} ไม่มีในสต๊อก หรือรหัสผิด`,
+                        confirmButtonText: 'สแกนใหม่',
+                        confirmButtonColor: '#3085d6'
+                    }).then((res) => {
+                        if(res.isConfirmed) {
+                            startScanner(); // เปิดกล้องให้สแกนใหม่
+                        }
+                    });
                 }
-
             } catch (error) {
-                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกได้: ' + error.message, 'error');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ข้อผิดพลาด',
+                    text: 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้: ' + error.message,
+                    confirmButtonText: 'ลองใหม่'
+                }).then(() => {
+                    startScanner();
+                });
             } finally {
                 isProcessing = false;
             }
